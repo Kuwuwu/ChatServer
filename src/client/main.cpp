@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     }
 
     // 初始化读写线程通信用的信号量
-    // sem_init(&rwsem, 0, 0);
+    sem_init(&rwsem, 0, 0);
     /*
         #include <semaphore.h>
         int sem_init(sem_t *sem, int pshared, unsigned int value);
