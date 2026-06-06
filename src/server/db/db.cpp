@@ -24,7 +24,7 @@ bool MySQL::connect()
                                   password.c_str(), dbname.c_str(), 3306, nullptr, 0);
     if (p != nullptr)
     {
-        mysql_query(_conn, "set names gbk");
+        mysql_query(_conn, "set names utf8mb4");
         LOG_INFO << "connect mysql success!";
     }
     else
