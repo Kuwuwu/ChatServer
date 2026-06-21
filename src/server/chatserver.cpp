@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <string>
+#include <muduo/base/Logging.h>
 
 using namespace std;
 using namespace placeholders;
@@ -45,12 +46,35 @@ void ChatServer::onMessage(const TcpConnectionPtr &conn,
                            Buffer *buffer,
                            Timestamp time)
 {
-    string buf = buffer->retrieveAllAsString();
-    // 数据的反序列化
-    json js = json::parse(buf);
-    // 完全解耦网络模块和业务模块代码
-    // 通过js[msgid]获取业务handler
-    auto msgHandler = ChatService::instrance()->getHandler(js["msgid"].get<int>());
-    // 回调绑定好的业务处理器
-    msgHandler(conn, js, time);
+    while (buffer->readableBytes() >= sizeof(uint32_t))
+    {
+        // 完全解耦网络模块和业务模块代码
+        // 通过js[msgid]获取业务handler
+
+        uint32_t len = buffer->peekInt32(); // 窥探4字节长度头，大端序
+        if (buffer->readableBytes() < len + sizeof(uint32_t))
+        {
+            break; // 半包，数据不够一个完整报文，退出循环等待下次回调
+        }
+
+        buffer->retrieve(sizeof(uint32_t)); // 跳过长度头
+        string buf = buffer->retrieveAsString(len);
+
+        json js;
+        try
+        {
+            // 数据的反序列化
+            js = json::parse(buf);
+        }
+        catch (const nlohmann::json::parse_error &e)
+        {
+            LOG_ERROR << "JSON parse error: " << e.what();
+            conn->shutdown();
+            return;
+        }
+
+        auto msgHandler = ChatService::instrance()->getHandler(js["msgid"].get<int>());
+        // 回调绑定好的业务处理器
+        msgHandler(conn, js, time);
+    }
 }
